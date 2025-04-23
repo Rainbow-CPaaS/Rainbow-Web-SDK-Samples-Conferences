@@ -1,0 +1,40 @@
+<html>
+    <head>
+        <!-- 🤔 Note: in the next line .js extension is not a typo  -->
+        <script type="module" src="./index.js"></script>
+        <link rel="stylesheet" href="./style.css">
+    </head>
+    <body>
+        <div id="loading-spinner" class="loading-spinner" style="display: none;"></div>
+        <div id="loginContainer" class="login-container" style="display: none;">
+            <h2>Login</h2>
+            <form id="loginForm">
+              <input type="text" id="username" placeholder="Username" required />
+              <input type="password" id="password" placeholder="Password" required />
+              <p id="error-message" class="error-message"></p>
+              <button type="submit">Login</button>
+            </form>
+        </div>
+
+        <div id="mainPage" class="main-page" style="display: none;">
+            <div id="profileContainer" class="profile-container">
+                <img id="avatar" src="" alt="Avatar" />
+                <h2 id="username">Username</h2>
+                <p id="company">Company</p>
+                <button id="logout-btn">Logout</button>
+            </div>
+            <div class="search-container">
+                <input type="text" id="search-query" placeholder="Search for bubbles..." />
+                <button id="search-btn">Search</button>
+            </div>
+
+            <div id="search-results" class="search-results">
+                <!-- Dynamic search result cards will go here -->
+            </div>
+
+            <div id="call-cards-container" class="call-cards-container">
+                <!-- Call Cards will be dynamically added here -->
+            </div>
+        </div>
+    </body>
+</html>

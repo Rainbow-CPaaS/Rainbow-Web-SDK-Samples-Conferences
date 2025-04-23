@@ -1,0 +1,32 @@
+{
+  "name": "Rainbow-Web-SDK-Samples-Conferences",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "rollup -c rollup.config.js",
+    "serve": "serve ./dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rainbow-CPaaS/Rainbow-Web-SDK-Samples-Conferences.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Rainbow-CPaaS/Rainbow-Web-SDK-Samples-Conferences/issues"
+  },
+  "homepage": "https://github.com/Rainbow-CPaaS/Rainbow-Web-SDK-Samples-Conferences#readme",
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "rollup-plugin-copy": "^3.5.0",
+    "rollup-plugin-typescript2": "^0.36.0",
+    "serve": "^14.2.4"
+  },
+  "dependencies": {
+    "rainbow-web-sdk": "file:../../RainbowV2/projects/rainbow-web-sdk",
+    "typescript": "^5.8.3"
+  }
+}
