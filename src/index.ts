@@ -1,4 +1,4 @@
-import { Call, ConnectedUser, ConnectionServiceEvents, ConnectionState, Conversation, LogLevelEnum, RainbowSDK, RBEvent, User, BubbleService, BubbleServiceEvents, Bubble, BubbleConference, BubbleConferenceEvents, BubbleConferenceParticipant, BubbleConferenceMedia, BubbleConferenceMediaAction, BubbleConferenceServiceEvents, BubblesPlugin, BubbleConferencePlugin, BubbleSearchResult } from 'rainbow-web-sdk';
+import { ConnectedUser, ConnectionServiceEvents, ConnectionState, LogLevelEnum, RainbowSDK, RBEvent, User, BubbleService, BubbleServiceEvents, Bubble, BubbleConference, BubbleConferenceEvents, BubbleConferenceParticipant, BubbleConferenceMedia, BubbleConferenceMediaAction, BubbleConferenceServiceEvents, BubblesPlugin, BubbleConferencePlugin, BubbleSearchResult } from 'rainbow-web-sdk';
 
 // Personnal configuration for the SDK APP; If you need help, please read the starting guides on how to obtain the key / secret
 // and update the appConfig in the config file.
