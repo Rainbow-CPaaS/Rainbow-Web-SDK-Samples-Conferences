@@ -4,6 +4,8 @@ This project is build following the starting guides available in on the public R
 
 The idea is to have a quick starting app written in TypeScript (no framework) to show some basic implementations of the APIs related to bubbles and the Bubble Conference management that are avaialbe in the SDK Web (available on npm, "rainbow-web-sdk").
 
+**SDK WEB VERSION 5.0.37-sts AND LATER**
+
 I strongly advice you to use any modern framework for your application, as the code will be 3x easier to write and maintain
 
 But for the sake of the demo and to be framework-free, the code is entarily written in TS with basic HTML/CSS; This application is probably not bug free, but it will give some general directions. I've taken some shortcuts in order to avoid having too complex code, so please read the comments in the code to see where we need to have better management to avoid issues (it's mostly related to checking capabilites and error management, so nothing too complicated but it should be done correctly as to give users a useful feedback, or simply not propose actions when we know they're not allowed).
