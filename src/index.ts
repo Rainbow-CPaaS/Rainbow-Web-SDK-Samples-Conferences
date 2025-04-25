@@ -1,4 +1,4 @@
-import { ConnectedUser, ConnectionServiceEvents, ConnectionState, LogLevelEnum, RainbowSDK, RBEvent, User, BubbleService, BubbleServiceEvents, Bubble, BubbleConference, BubbleConferenceEvents, BubbleConferenceParticipant, BubbleConferenceMedia, BubbleConferenceMediaAction, BubbleConferenceServiceEvents, BubblesPlugin, BubbleConferencePlugin, BubbleSearchResult, BubbleConferenceVideoQuality } from 'rainbow-web-sdk';
+import { ConnectedUser, ConnectionServiceEvents, ConnectionState, LogLevelEnum, RainbowSDK, RBEvent, User, BubbleService, BubbleServiceEvents, Bubble, BubbleConference, BubbleConferenceEvents, BubbleConferenceParticipant, BubbleConferenceMedia, BubbleConferenceMediaAction, BubbleConferenceServiceEvents, BubblesPlugin, BubbleConferencePlugin, BubbleSearchResult, BubbleConferenceVideoQuality, BubbleConferenceStatus } from 'rainbow-web-sdk';
 
 // Personnal configuration for the SDK APP; If you need help, please read the starting guides on how to obtain the key / secret
 // and update the appConfig in the config file.
@@ -186,12 +186,23 @@ class TestApplication {
             if (bubble.isBubbleConferenceStarted()) {
                 //there's already a conference here, directly join it; (avoid to join the same conference ... )
                 this.bubbleConference = this.rainbowSDK.bubbleConferenceService?.getConference(bubble);
+
+                //ATTENTION, we need to subscribe to events before join, as we can get events while joining that we might miss;
+                //otherwise, if we want for the JOIN, we can later update the UI based on the information that we've in the conference
+                //as we can have sharing or other videos that are established in // with the join actions
+                this.subscribeForConferenceUpdates();
+
                 await this.bubbleConference.join();
             }
             else if (bubble.isConnecteUserOwner() || bubble.isConnecteUserOrganizer()) {
                 //the start does not make a join, we can start a conference but without joining it;
                 this.bubbleConference = await this.rainbowSDK.bubbleConferenceService?.startConference(bubble);
 
+                //ATTENTION, we need to subscribe to events before join, as we can get events while joining that we might miss;
+                //otherwise, if we want for the JOIN, we can later update the UI based on the information that we've in the conference
+                //as we can have sharing or other videos that are established in // with the join actions
+
+                this.subscribeForConferenceUpdates();
                 //join it too
                 await this.bubbleConference.join();
             }
@@ -200,8 +211,6 @@ class TestApplication {
                 //show some error as user does not have rights or something
                 return;
             }
-
-            this.subscribeForConferenceUpdates();
         }
         catch (error) {
             //manage error
@@ -254,6 +263,7 @@ class TestApplication {
         //here we'll only listen for new conference, or end of conference;
         //do not forget to unsubscribe on log-out, or on page change, as this may cause memory leak !
         const bubbleConferenceServiceSubscription = this.rainbowSDK.bubbleConferenceService?.subscribe((event: RBEvent) => {
+            console.debug('BubbleConferenceServiceEvents - ' + event.name);
             switch (event.name) {
                 case BubbleConferenceServiceEvents.ON_CONFERENCE_STARTED:
                     // This event is fired for all bubble when a new conference has been started.
@@ -288,8 +298,8 @@ class TestApplication {
                             callButton.addEventListener('click', async () => {
                                 searchResultsContainer.innerHTML = '';
                                 this.bubbleConference = bubbleConf;
-                                await bubbleConf.join();
                                 this.subscribeForConferenceUpdates();
+                                await bubbleConf.join();
                             });
                         }
                     }
@@ -336,6 +346,7 @@ class TestApplication {
             cardElement.innerHTML = `
             <img src="${participant.contact?.avatar?.src}" alt="Avatar" />
             <video id="video_${cardElement.id}" width=240 height=135 class="hidden"></video>
+            <video id="sharing_${cardElement.id}" width=240 height=135 class="hidden"></video>
             <h4>${participant.contact?.displayName}</h4>
             <button class="hold-btn hidden">Hold video</button>
             <button class="retrieve-btn hidden">Retrieve video</button>
@@ -349,12 +360,15 @@ class TestApplication {
             cardElement.innerHTML = `
             <img src="${participant.contact?.avatar?.src}" alt="Avatar" />
             <video id="video_${cardElement.id}" width=240 height=135 class="hidden"></video>
+            <video id="sharing_${cardElement.id}" width=240 height=135 class="hidden"></video>
             <h4>${participant.contact?.displayName}</h4>
             <button class="call-end-btn hidden">End</button>
             <button class="mute-btn hidden">Mute</button>
             <button class="unmute-btn hidden">Unmute</button>
             <button class="add-video-btn hidden">Add Video</button>
             <button class="remove-video-btn hidden">Remove Video</button>
+            <button class="add-sharing-btn hidden">Add Sharing</button>
+            <button class="remove-sharing-btn hidden">Remove Sharing</button>
         `;
         }
 
@@ -386,6 +400,16 @@ class TestApplication {
         const removeVideo = cardElement.querySelector('.remove-video-btn');
         if (removeVideo) {
             removeVideo.addEventListener('click', () => this.bubbleConference.removeMedia(BubbleConferenceMedia.VIDEO));
+        }
+
+        const addSharing = cardElement.querySelector('.add-sharing-btn');
+        if (addSharing) {
+            addSharing.addEventListener('click', () => this.bubbleConference.addMedia(BubbleConferenceMedia.SHARING));
+        }
+
+        const removeSharing = cardElement.querySelector('.remove-sharing-btn');
+        if (removeSharing) {
+            removeSharing.addEventListener('click', () => this.bubbleConference.removeMedia(BubbleConferenceMedia.SHARING));
         }
 
         const holdVideo = cardElement.querySelector('.hold-btn');
@@ -486,11 +510,23 @@ class TestApplication {
         if (removeVideo) {
             removeVideo.classList.toggle("hidden", Boolean(!this.bubbleConference.localParticipant.videoSession));
         }
+
+        const addSharing = cardElement.querySelector('.add-sharing-btn');
+        if (addSharing) {
+            //no add sharing in case someone is already sharing his screen
+            addSharing.classList.toggle("hidden", Boolean(this.bubbleConference.getSharingParticipant()));
+        }
+
+        const removeSharing = cardElement.querySelector('.remove-sharing-btn');
+        if (removeSharing) {
+            removeSharing.classList.toggle("hidden", Boolean(!this.bubbleConference.hasLocalSharing));
+        }
     }
 
     private buildParticipantsCells() {
 
-        this.buildCell(this.bubbleConference.localParticipant);
+        if (this.bubbleConference.localParticipant) this.buildCell(this.bubbleConference.localParticipant);
+
         this.bubbleConference.participants.forEach((participant) => { this.buildCell(participant); });
 
         //remove cells that are no longer here
@@ -499,7 +535,7 @@ class TestApplication {
 
         items.forEach(item => {
             const id = item.getAttribute('id');
-            if (id !== this.bubbleConference.localParticipant.id && !this.bubbleConference.participants.find((participant) => participant.id === id)) {
+            if (id !== this.bubbleConference.localParticipant?.id && !this.bubbleConference.participants.find((participant) => participant.id === id)) {
                 item.remove();
             }
         });
@@ -517,14 +553,16 @@ class TestApplication {
                     case BubbleConferenceEvents.ON_STATUS_CHANGE:
                         // This event is fired when the bubbleConference connection status is changed.
                         // You can retreive the conference status in event data
-                        if (this.bubbleConference.status === "ended" || this.bubbleConference.status === "unjoined") {
+                        if (this.bubbleConference.status === BubbleConferenceStatus.ENDED || this.bubbleConference.status === BubbleConferenceStatus.UNJOINED) {
                             //we've left the conference, remove all listeners to avoid memory leak !
                             this.bubbleConferenceSubscription.unsubscribe();
                             this.bubbleConference = undefined;
                             //remove everything
                             document.getElementById('call-cards-container').innerHTML = '';
                         }
-                        else if (this.bubbleConference.status === "connected") {
+                        else if (this.bubbleConference.status === BubbleConferenceStatus.CONNECTED) {
+                            //build a simple UI
+                            this.buildParticipantsCells();
                             this.manageMyCellButtons(this.bubbleConference.localParticipant);
                         }
                         break;
@@ -548,13 +586,25 @@ class TestApplication {
                         // When you receive this event, you can, for example, attach the 
                         // received media to a component of your UI, using the method ```attachMediaToHtmlElement```
                         const localParticipant: BubbleConferenceParticipant = this.bubbleConference.localParticipant;
-                        if (event.data.action === BubbleConferenceMediaAction.ADDED && event.data.mediaType === BubbleConferenceMedia.VIDEO) {
-                            this.bubbleConference.attachMediaToHtmlElement(`video_${localParticipant.id}`, event.data.mediaType, localParticipant);
-                            document.getElementById(`video_${localParticipant.id}`).classList.toggle("hidden", false);
-
+                        if (event.data.action === BubbleConferenceMediaAction.ADDED) {
+                            if (event.data.mediaType === BubbleConferenceMedia.VIDEO) {
+                                this.bubbleConference.attachMediaToHtmlElement(`video_${localParticipant.id}`, event.data.mediaType, localParticipant);
+                                document.getElementById(`video_${localParticipant.id}`).classList.toggle("hidden", false);
+                            }
+                            else if (event.data.mediaType === BubbleConferenceMedia.SHARING) {
+                                this.bubbleConference.attachMediaToHtmlElement(`sharing_${localParticipant.id}`, event.data.mediaType);
+                                document.getElementById(`sharing_${localParticipant.id}`).classList.toggle("hidden", false);
+                            }
                         }
-                        else if (event.data.action = BubbleConferenceMediaAction.REMOVED && event.data.mediaType === BubbleConferenceMedia.VIDEO) {
-                            document.getElementById(`video_${localParticipant.id}`).classList.toggle("hidden", true);
+                        else if (event.data.action = BubbleConferenceMediaAction.REMOVED) {
+
+
+                            if (event.data.mediaType === BubbleConferenceMedia.VIDEO) {
+                                document.getElementById(`video_${localParticipant.id}`).classList.toggle("hidden", true);
+                            }
+                            else if (event.data.mediaType === BubbleConferenceMedia.SHARING) {
+                                document.getElementById(`sharing_${localParticipant.id}`).classList.toggle("hidden", true);
+                            }
                         }
 
                         //update the buttons
@@ -567,12 +617,32 @@ class TestApplication {
                         // When you receive this event, you can, for example, attach the 
                         // received media to a component of your UI, using the method ```attachMediaToHtmlElement```
                         const remoteParticipant: BubbleConferenceParticipant = event.data.participant;
-                        if (event.data.action === BubbleConferenceMediaAction.ADDED && event.data.mediaType === BubbleConferenceMedia.VIDEO) {
-                            this.bubbleConference.attachMediaToHtmlElement(`video_${remoteParticipant.id}`, event.data.mediaType, remoteParticipant);
-                            document.getElementById(`video_${remoteParticipant.id}`).classList.toggle("hidden", false);
+                        if (event.data.action === BubbleConferenceMediaAction.ADDED) {
+                            if (event.data.mediaType === BubbleConferenceMedia.VIDEO) {
+                                this.bubbleConference.attachMediaToHtmlElement(`video_${remoteParticipant.id}`, event.data.mediaType, remoteParticipant);
+                                document.getElementById(`video_${remoteParticipant.id}`).classList.toggle("hidden", false);
+                            }
+                            else if (event.data.mediaType === BubbleConferenceMedia.SHARING) {
+                                //attach sharing somewhere
+                                this.bubbleConference.attachMediaToHtmlElement(`sharing_${remoteParticipant.id}`, event.data.mediaType);
+                                document.getElementById(`sharing_${remoteParticipant.id}`).classList.toggle("hidden", false);
+
+                                //manage my buttons, as someone else is sharing
+                                this.manageMyCellButtons(this.bubbleConference.localParticipant);
+                            }
+
                         }
-                        else if (event.data.action = BubbleConferenceMediaAction.REMOVED && event.data.mediaType === BubbleConferenceMedia.VIDEO) {
-                            document.getElementById(`video_${remoteParticipant.id}`).classList.toggle("hidden", true);
+                        else if (event.data.action = BubbleConferenceMediaAction.REMOVED) {
+                            if (event.data.mediaType === BubbleConferenceMedia.VIDEO) {
+                                document.getElementById(`video_${remoteParticipant.id}`).classList.toggle("hidden", true);
+                            }
+                            else if (event.data.mediaType === BubbleConferenceMedia.SHARING) {
+                                //attach sharing somewhere
+                                document.getElementById(`sharing_${remoteParticipant.id}`).classList.toggle("hidden", true);
+
+                                //manage my buttons, as someone else is sharing
+                                this.manageMyCellButtons(this.bubbleConference.localParticipant);
+                            }
                         }
 
                         this.manageRemoteCellButtons(remoteParticipant);
