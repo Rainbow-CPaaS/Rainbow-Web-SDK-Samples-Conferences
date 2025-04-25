@@ -1,4 +1,4 @@
-import { ConnectedUser, ConnectionServiceEvents, ConnectionState, LogLevelEnum, RainbowSDK, RBEvent, User, BubbleService, BubbleServiceEvents, Bubble, BubbleConference, BubbleConferenceEvents, BubbleConferenceParticipant, BubbleConferenceMedia, BubbleConferenceMediaAction, BubbleConferenceServiceEvents, BubblesPlugin, BubbleConferencePlugin, BubbleSearchResult } from 'rainbow-web-sdk';
+import { ConnectedUser, ConnectionServiceEvents, ConnectionState, LogLevelEnum, RainbowSDK, RBEvent, User, BubbleService, BubbleServiceEvents, Bubble, BubbleConference, BubbleConferenceEvents, BubbleConferenceParticipant, BubbleConferenceMedia, BubbleConferenceMediaAction, BubbleConferenceServiceEvents, BubblesPlugin, BubbleConferencePlugin, BubbleSearchResult, BubbleConferenceVideoQuality } from 'rainbow-web-sdk';
 
 // Personnal configuration for the SDK APP; If you need help, please read the starting guides on how to obtain the key / secret
 // and update the appConfig in the config file.
@@ -331,7 +331,22 @@ class TestApplication {
         cardElement.id = participant.id;
         cardElement.classList.add('call-card');
 
-        cardElement.innerHTML = `
+        if (participant.id !== this.connectedUser.dbId) {
+            //other user card
+            cardElement.innerHTML = `
+            <img src="${participant.contact?.avatar?.src}" alt="Avatar" />
+            <video id="video_${cardElement.id}" width=240 height=135 class="hidden"></video>
+            <h4>${participant.contact?.displayName}</h4>
+            <button class="hold-btn hidden">Hold video</button>
+            <button class="retrieve-btn hidden">Retrieve video</button>
+            <button class="high-quality-btn hidden">High Quality</button>
+            <button class="medium-quality-btn hidden">Medium Quality</button>
+            <button class="low-quality-btn hidden">Low Quality</button>
+        `;
+        }
+        else {
+            //my card
+            cardElement.innerHTML = `
             <img src="${participant.contact?.avatar?.src}" alt="Avatar" />
             <video id="video_${cardElement.id}" width=240 height=135 class="hidden"></video>
             <h4>${participant.contact?.displayName}</h4>
@@ -341,12 +356,9 @@ class TestApplication {
             <button class="add-video-btn hidden">Add Video</button>
             <button class="remove-video-btn hidden">Remove Video</button>
         `;
-
+        }
 
         callCardsContainer.appendChild(cardElement);
-
-        //manage my buttons
-        if (participant.id !== this.connectedUser.dbId) return;
 
         const callButton = cardElement.querySelector('.call-end-btn');
         if (callButton) {
@@ -355,8 +367,6 @@ class TestApplication {
                 else this.bubbleConference.leave();
             });
         }
-
-        callButton.classList.toggle("hidden", false);
 
         const muteButton = cardElement.querySelector('.mute-btn');
         if (muteButton) {
@@ -378,12 +388,84 @@ class TestApplication {
             removeVideo.addEventListener('click', () => this.bubbleConference.removeMedia(BubbleConferenceMedia.VIDEO));
         }
 
-        this.manageCellButtons(participant);
+        const holdVideo = cardElement.querySelector('.hold-btn');
+        if (holdVideo) {
+            holdVideo.addEventListener('click', async () => {
+                await this.bubbleConference.holdRemoteVideo(participant);
+                this.manageRemoteCellButtons(participant);
+            });
+        }
+
+        const retrieveVideo = cardElement.querySelector('.retrieve-btn');
+        if (retrieveVideo) {
+            retrieveVideo.addEventListener('click', async () => {
+                await this.bubbleConference.unholdRemoteVideo(participant);
+                this.manageRemoteCellButtons(participant);
+            });
+        }
+
+        const HDQuality = cardElement.querySelector('.high-quality-btn');
+        if (HDQuality) {
+            HDQuality.addEventListener('click', () => this.bubbleConference.updateVideoQualityForParticipant(BubbleConferenceVideoQuality.HIGH, participant));
+        }
+
+        const mediumQuality = cardElement.querySelector('.medium-quality-btn');
+        if (mediumQuality) {
+            mediumQuality.addEventListener('click', () => this.bubbleConference.updateVideoQualityForParticipant(BubbleConferenceVideoQuality.MEDIUM, participant));
+        }
+
+        const lowQuality = cardElement.querySelector('.low-quality-btn');
+        if (lowQuality) {
+            lowQuality.addEventListener('click', () => this.bubbleConference.updateVideoQualityForParticipant(BubbleConferenceVideoQuality.LOW, participant));
+        }
+
+        //manage buttons
+        if (participant.id !== this.connectedUser.dbId) {
+            //manage remote cell buttons
+            this.manageRemoteCellButtons(participant);
+        }
+        else {
+            this.manageMyCellButtons(participant);
+        }
     }
 
-    private manageCellButtons(participant: BubbleConferenceParticipant) {
+    private manageRemoteCellButtons(participant: BubbleConferenceParticipant) {
         const cardElement = document.getElementById(participant.id);
         if (!cardElement) return;
+
+        const holdVideo = cardElement.querySelector('.hold-btn');
+        if (holdVideo) {
+            holdVideo.classList.toggle("hidden", !Boolean(participant.videoSession && !participant.videoSession.onHold));
+        }
+
+        const retrieveVideo = cardElement.querySelector('.retrieve-btn');
+        if (retrieveVideo) {
+            retrieveVideo.classList.toggle("hidden", !Boolean(participant.videoSession && participant.videoSession.onHold));
+        }
+
+        const HDQuality = cardElement.querySelector('.high-quality-btn');
+        if (HDQuality) {
+            HDQuality.classList.toggle("hidden", !Boolean(participant.videoSession));
+        }
+
+        const mediumQuality = cardElement.querySelector('.medium-quality-btn');
+        if (mediumQuality) {
+            mediumQuality.classList.toggle("hidden", !Boolean(participant.videoSession));
+        }
+
+        const lowQuality = cardElement.querySelector('.low-quality-btn');
+        if (lowQuality) {
+            lowQuality.classList.toggle("hidden", !Boolean(participant.videoSession));
+        }
+    }
+
+    private manageMyCellButtons(participant: BubbleConferenceParticipant) {
+        const cardElement = document.getElementById(participant.id);
+        if (!cardElement) return;
+
+        //show end call buttons
+        cardElement.querySelector('.call-end-btn').classList.toggle("hidden", false);
+
         //add mute/unmute actions, but only show the buttons if the call capability is TRUE for this action
         const muteButton = cardElement.querySelector('.mute-btn');
         if (muteButton) {
@@ -443,7 +525,7 @@ class TestApplication {
                             document.getElementById('call-cards-container').innerHTML = '';
                         }
                         else if (this.bubbleConference.status === "connected") {
-                            this.manageCellButtons(this.bubbleConference.localParticipant);
+                            this.manageMyCellButtons(this.bubbleConference.localParticipant);
                         }
                         break;
 
@@ -453,7 +535,7 @@ class TestApplication {
                         const participant: BubbleConferenceParticipant = event.data.participant;
 
                         //in my case, I'll manage only my buttons
-                        if (participant.id === this.connectedUser.dbId) { this.manageCellButtons(participant); }
+                        if (participant.id === this.connectedUser.dbId) { this.manageMyCellButtons(participant); }
                         break;
 
                     case BubbleConferenceEvents.ON_PARTICIPANT_LIST_CHANGE:
@@ -476,7 +558,7 @@ class TestApplication {
                         }
 
                         //update the buttons
-                        this.manageCellButtons(localParticipant);
+                        this.manageMyCellButtons(localParticipant);
 
                         break;
 
@@ -492,6 +574,8 @@ class TestApplication {
                         else if (event.data.action = BubbleConferenceMediaAction.REMOVED && event.data.mediaType === BubbleConferenceMedia.VIDEO) {
                             document.getElementById(`video_${remoteParticipant.id}`).classList.toggle("hidden", true);
                         }
+
+                        this.manageRemoteCellButtons(remoteParticipant);
 
                         break;
                     default: break;
